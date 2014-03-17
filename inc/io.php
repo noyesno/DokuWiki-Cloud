@@ -170,6 +170,12 @@ function _io_writeWikiPage_action($data) {
  * @author  Andreas Gohr <andi@splitbrain.org>
  * @return bool true on success
  */
+
+ /*
+  * gzencode() == gzip
+  * gzcompress() == zlib (aka. HTTP deflate)
+  * gzdeflate()  == *raw* deflate encoding
+  */
 function io_saveFile($file,$content,$append=false){
     global $conf;
     $mode = ($append) ? 'ab' : 'wb';
@@ -178,35 +184,49 @@ function io_saveFile($file,$content,$append=false){
     io_makeFileDir($file);
     io_lock($file);
     if(substr($file,-3) == '.gz'){
-        $fh = @gzopen($file,$mode.'9');
+        /* $fh = @gzopen($file,$mode.'9');
         if(!$fh){
             msg("Writing $file failed",-1);
             io_unlock($file);
             return false;
         }
         gzwrite($fh, $content);
-        gzclose($fh);
-    }else if(substr($file,-4) == '.bz2'){
-        $fh = @bzopen($file,$mode{0});
+        gzclose($fh); */
+        $data = gzencode($content,9);
+        if($data===false) {msg("gzencode for $file failed",-1); io_unlcok($file); return false;}
+    }else if(substr($file,-4) == '.bz2'){    // is slow
+        /* $fh = @bzopen($file,$mode{0});
         if(!$fh){
             msg("Writing $file failed", -1);
             io_unlock($file);
             return false;
         }
         bzwrite($fh, $content);
-        bzclose($fh);
+        bzclose($fh); */
+        $data = bzcompress($content);
+        if(is_int($data)) {msg("bzcompress for $file failed",-1); io_unlcok($file); return false;}
     }else{
-        $fh = @fopen($file,$mode);
+        /* $fh = @fopen($file,$mode);
         if(!$fh){
             msg("Writing $file failed",-1);
             io_unlock($file);
             return false;
         }
         fwrite($fh, $content);
-        fclose($fh);
+        fclose($fh);*/
+        $data = $content;
     }
 
-    if(!$fileexists and !empty($conf['fperm'])) chmod($file, $conf['fperm']);
+    $fh = @fopen($file,$mode);
+    if(!$fh){
+        msg("Writing $file failed",-1);
+        io_unlock($file);
+        return false;
+    }
+    fwrite($fh, $data);
+    fclose($fh);
+    
+    if(!$fileexists and !empty($conf['fperm'])) @chmod($file, $conf['fperm']);
     io_unlock($file);
     return true;
 }

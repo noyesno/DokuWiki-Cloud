@@ -86,7 +86,8 @@ foreach (array('default','local') as $config_group) {
 }
 
 // set timezone (as in pre 5.3.0 days)
-date_default_timezone_set(@date_default_timezone_get());
+date_default_timezone_set($conf['timezone']); # TODO: if $conf['timezone'] empty? 
+// ini_set('date.timezone', 'Asia/Shanghai') 	
 
 // define baseURL
 if(!defined('DOKU_REL')) define('DOKU_REL',getBaseURL(false));
@@ -245,6 +246,8 @@ function init_paths(){
 
     foreach($paths as $c => $p) {
         $path = empty($conf[$c]) ? $conf['savedir'].'/'.$p : $conf[$c];
+        $conf[$c] = $path;
+        continue;
         $conf[$c] = init_path($path);
         if(empty($conf[$c]))
             nice_die("The $c ('$p') at $path is not found, isn't accessible or writable.
@@ -254,7 +257,7 @@ function init_paths(){
     }
 
     // path to old changelog only needed for upgrading
-    $conf['changelog_old'] = init_path((isset($conf['changelog']))?($conf['changelog']):($conf['savedir'].'/changes.log'));
+    $conf['changelog_old'] =           (isset($conf['changelog']))?($conf['changelog']):($conf['savedir'].'/changes.log');
     if ($conf['changelog_old']=='') { unset($conf['changelog_old']); }
     // hardcoded changelog because it is now a cache that lives in meta
     $conf['changelog'] = $conf['metadir'].'/_dokuwiki.changes';
@@ -532,7 +535,10 @@ function fullpath($path,$exists=false){
     $iswin = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' || @$GLOBALS['DOKU_UNITTEST_ASSUME_WINDOWS']);
 
     // find the (indestructable) root of the path - keeps windows stuff intact
-    if($path{0} == '/'){
+    if(preg_match('#^(\w+://)(.*)#', $path, $match)){
+      $root = $match[1];
+      $path = $match[2];
+    }elseif($path{0} == '/'){
         $root = '/';
     }elseif($iswin){
         // match drive letter and UNC paths

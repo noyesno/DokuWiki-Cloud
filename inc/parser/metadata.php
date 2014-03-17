@@ -474,7 +474,7 @@ class Doku_Renderer_metadata extends Doku_Renderer {
 
     list($src,$hash) = explode('#',$src,2);
     if(!preg_match('/^https?:\/\//i',$src)){
-        resolve_mediaid(getNS($ID),$src, $exists);
+        resolve_mediaid(getNS($ID),$src);
     }
     if(preg_match('/.(jpe?g|gif|png)$/i',$src)){
         $this->firstimage = $src;

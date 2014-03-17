@@ -433,8 +433,9 @@ function resolve_id($ns,$id,$clean=true){
  *
  * @author Andreas Gohr <andi@splitbrain.org>
  */
-function resolve_mediaid($ns,&$page,&$exists){
+function resolve_mediaid($ns,&$page,&$exists='x'){
     $page   = resolve_id($ns,$page);
+    if($exists == 'x') return;
     $file   = mediaFN($page);
     $exists = @file_exists($file);
 }

@@ -465,13 +465,19 @@ function ml($id = '', $more = '', $direct = true, $sep = '&amp;', $abs = false) 
 
     // decide on scriptname
     if($direct) {
-        if($conf['userewrite'] == 1) {
+        if(!empty($conf['media']['fetch'])){
+          $xlink = '';
+          $script = $conf['media']['fetch'];
+        }elseif($conf['userewrite'] == 1) {
             $script = '_media';
         } else {
             $script = 'lib/exe/fetch.php';
         }
     } else {
-        if($conf['userewrite'] == 1) {
+        if(!empty($conf['media']['detail'])){
+          $xlink = '';
+          $script = $conf['media']['detail'];
+        }elseif($conf['userewrite'] == 1) {
             $script = '_detail';
         } else {
             $script = 'lib/exe/detail.php';

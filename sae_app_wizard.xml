@@ -1,0 +1,54 @@
+<appwizard>
+<introduction>
+  <name>DokuWiki for SAE</name>
+  <author>非是非</author>
+  <icon>lib/tpl/dokuwiki/images/logo.png</icon>
+  <homepage>http://dokuwiki.sinaapp.com/</homepage>
+  <description><![CDATA[
+  DokuWiki是一个符合标准、简单易用的Wiki。它有简单而强大的语法。它适用于开发团体、工作小组和小型企业。可以用于：
+
+  * 企业知识库
+  * 私人笔记本
+  * 软件手册
+  * 项目的工作空间
+  * CMS
+  * ……
+  ]]></description>
+</introduction>
+
+<platform>
+  <services>
+    <service name="dokuwiki"  params="public">Storage</service>
+    <service>KVDB</service>
+<!--
+    <service size="30M">Memcache</service>
+    <service>Mysql</service>
+-->
+</services>
+
+  <appconfig>
+    <tpl>
+<![CDATA[
+name: <<appname>>
+version: <<version>>
+handle:
+  - directoryindex: doku.php index.html index.php
+  - hostaccess: if(path ~ "^/(data|conf|bin|inc)/") allow "127.0.0.1"
+  - hostaccess: if(path ~ "^/(install)/") allow "127.0.0.1"
+  - hostaccess: if(path ~ "^/([\.]|README$|VERSION$|COPYING$)") allow "127.0.0.1"
+  - passwdaccess:  if(path ~ "/admin/") passwd "admin:noyesno"
+  - expire: if(path ~ "\.(ico|png|jpg|gif)$") time 604800
+  - rewrite: if(path ~ "^/_media/(.*)") goto "/lib/exe/fetch.php?media=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/_detail/(.*)") goto "/lib/exe/detail.php?media=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/_export/([^/]+)/(.*)") goto "/doku.php?do=export_$1&id=$2&%{QUERY_STRING}"
+  - rewrite: if(!is_file() && path ~ "^/(.*)") goto "/doku.php?id=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/index.php$") goto "/doku.php"
+]]>
+    </tpl>
+  </appconfig>
+</platform>
+
+<code>
+  <initScript>install.php</initScript>
+</code>
+</appwizard>

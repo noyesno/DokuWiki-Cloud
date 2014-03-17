@@ -1638,6 +1638,7 @@ function tpl_getMediaFile($search, $abs = false, &$imginfo = null) {
 function tpl_includeFile($file) {
     global $config_cascade;
     foreach(array('protected', 'local', 'default') as $config_group) {
+        continue; //TODO:
         if(empty($config_cascade['main'][$config_group])) continue;
         foreach($config_cascade['main'][$config_group] as $conf_file) {
             $dir = dirname($conf_file);
@@ -1675,22 +1676,25 @@ function tpl_getFavicon($abs = false, $fileName = 'favicon.ico') {
  * @return string
  */
 function tpl_favicon($types = array('favicon')) {
-
+    global $conf;
     $return = '';
 
     foreach($types as $type) {
         switch($type) {
             case 'favicon':
                 $look = array(':wiki:favicon.ico', ':favicon.ico', 'images/favicon.ico');
+                $look = $conf['favicon']['favicon'];
                 $return .= '<link rel="shortcut icon" href="'.tpl_getMediaFile($look).'" />'.NL;
                 break;
             case 'mobile':
                 $look = array(':wiki:apple-touch-icon.png', ':apple-touch-icon.png', 'images/apple-touch-icon.png');
+                $look = $conf['favicon']['mobile'];
                 $return .= '<link rel="apple-touch-icon" href="'.tpl_getMediaFile($look).'" />'.NL;
                 break;
             case 'generic':
                 // ideal world solution, which doesn't work in any browser yet
                 $look = array(':wiki:favicon.svg', ':favicon.svg', 'images/favicon.svg');
+                $look = $conf['favicon']['generic'];
                 $return .= '<link rel="icon" href="'.tpl_getMediaFile($look).'" type="image/svg+xml" />'.NL;
                 break;
         }

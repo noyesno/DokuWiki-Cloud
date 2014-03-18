@@ -3,14 +3,24 @@
 define('IS_SAE', function_exists('sae_debug'));
 define('IS_DEBUG', !empty($_GET['_debug']));
 
-include(DOKU_INC.'inc/ext/DokuWikiFileSystemWrapper.php');
-DokuWikiFileSystemWrapper::register('saekv', 'FileSystemSaeKV', true);
-DokuWikiFileSystemWrapper::register('saestor', 'FileSystemSaeStore', true);
+include(DOKU_INC.'inc/ext/PhpVFS.php');
 
+/*
+include(DOKU_INC.'inc/ext/PhpVFS.saekv.php');
+include(DOKU_INC.'inc/ext/PhpVFS.saestor.php');
+DokuWikiFileSystemWrapper::register('saekv',   'PhpVFS_SaeKV',    true);
+DokuWikiFileSystemWrapper::register('saestor', 'PhpVFS_SaeStore', true);
+
+include(DOKU_INC.'inc/ext/PhpVFS.mysql.php');
+DokuWikiFileSystemWrapper::register('mysql',   'PhpVFS_Mysql', true);
+*/
+
+include(DOKU_INC.'inc/ext/PhpVFS.sqlite.php');
+PhpVFS::register('sqlite',   'PhpVFS_Sqlite', true);
 
 function debug_log($msg=null, $force=false, $force_print=false){
   static $fout=null;
-
+  #print $msg;return;
   if(!($force || IS_DEBUG)) return;
   if(is_null($msg)){
      if(!is_null($fout)) fclose($fout);

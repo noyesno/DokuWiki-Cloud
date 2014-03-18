@@ -16,24 +16,7 @@ $conf['fetchsize']   = 0;                //maximum size (bytes) fetch.php may do
 $conf['dnslookups']  = 0;                //disable to disallow IP to hostname lookups
 $conf['timezone']    = 'Asia/Shanghai';
 
-#---------------------------------------------------------#
-$conf['conf']        = 'saekv://dokuwiki/conf';
-$conf['savedir']     = 'saekv://dokuwiki/data';            //where to store all the files
-#---------------------------------------------------------#
-$conf['datadir']     = 'saekv://dokuwiki/pages';
-$conf['olddir']      = 'saekv://dokuwiki/attic/pages';  // binary
-$conf['mediaolddir'] = 'saekv://dokuwiki/attic/media';
-$conf['metadir']     = 'saekv://dokuwiki/meta/pages';
-$conf['mediametadir']= 'saekv://dokuwiki/meta/media';
-$conf['cachedir']    = 'saekv://dokuwiki/cache';       // binary
-$conf['indexdir']    = 'saekv://dokuwiki/index';       // binary
-$conf['lockdir']     = 'saekv://dokuwiki/memory/locks';
-$conf['mediadir']    = 'saestor://dokuwiki/data/media';
-$conf['tmpdir']      = SAE_TMP_PATH; // 'data/tmp'; // SAE_TMP_PATH
-
-
-## User Defined (performance enhance for SAE) ##
-$conf['media']['fetch']  = sprintf('http://%s-dokuwiki.stor.sinaapp.com/data/media', $_SERVER['HTTP_APPNAME']);
+$conf['media']['fetch']  = null;
 $conf['media']['detail'] = null;
 
 $conf['logo'] = array('images/logo.png', ':wiki:logo.png');
@@ -41,3 +24,7 @@ $conf['logo'] = array('images/logo.png', ':wiki:logo.png');
 $conf['favicon']['favicon'] =  array('images/favicon.ico', ':favicon.ico');
 $conf['favicon']['mobile']  =  array('images/apple-touch-icon.png', ':apple-touch-icon.png');
 $conf['favicon']['generic'] =  array('images/favicon.svg', ':favicon.svg');
+
+
+$conf['vfs.type']   = 'sqlite';
+require(dirname(__FILE__).'/vfs.'.$conf['vfs.type'].'.php');

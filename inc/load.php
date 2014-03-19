@@ -35,6 +35,7 @@ require_once(DOKU_INC.'inc/template.php');
 require_once(DOKU_INC.'inc/toolbar.php');
 require_once(DOKU_INC.'inc/utf8.php');
 require_once(DOKU_INC.'inc/auth.php');
+require_once(DOKU_INC.'inc/compatibility.php');
 
 /**
  * spl_autoload_register callback
@@ -51,7 +52,6 @@ function load_autoload($name){
         'DokuHTTPClient'        => DOKU_INC.'inc/HTTPClient.php',
         'HTTPClient'            => DOKU_INC.'inc/HTTPClient.php',
         'JSON'                  => DOKU_INC.'inc/JSON.php',
-        'adLDAP'                => DOKU_INC.'inc/adLDAP.php',
         'Diff'                  => DOKU_INC.'inc/DifferenceEngine.php',
         'UnifiedDiffFormatter'  => DOKU_INC.'inc/DifferenceEngine.php',
         'TableDiffFormatter'    => DOKU_INC.'inc/DifferenceEngine.php',
@@ -71,6 +71,7 @@ function load_autoload($name){
         'IXR_IntrospectionServer' => DOKU_INC.'inc/IXR_Library.php',
         'Doku_Plugin_Controller'=> DOKU_INC.'inc/plugincontroller.class.php',
         'GeSHi'                 => DOKU_INC.'inc/geshi.php',
+        'Tar'                   => DOKU_INC.'inc/Tar.class.php',
         'TarLib'                => DOKU_INC.'inc/TarLib.class.php',
         'ZipLib'                => DOKU_INC.'inc/ZipLib.class.php',
         'DokuWikiFeedCreator'   => DOKU_INC.'inc/feedcreator.class.php',
@@ -81,11 +82,18 @@ function load_autoload($name){
         'Mailer'                => DOKU_INC.'inc/Mailer.class.php',
         'RemoteAPI'             => DOKU_INC.'inc/remote.php',
         'RemoteAPICore'         => DOKU_INC.'inc/RemoteAPICore.php',
+        'Subscription'          => DOKU_INC.'inc/subscription.php',
+        'Crypt_Base'            => DOKU_INC.'inc/phpseclib/Crypt_Base.php',
+        'Crypt_Rijndael'        => DOKU_INC.'inc/phpseclib/Crypt_Rijndael.php',
+        'Crypt_AES'             => DOKU_INC.'inc/phpseclib/Crypt_AES.php',
+        'Crypt_Hash'            => DOKU_INC.'inc/phpseclib/Crypt_Hash.php',
+        'lessc'                 => DOKU_INC.'inc/lessc.inc.php',
 
         'DokuWiki_Action_Plugin' => DOKU_PLUGIN.'action.php',
         'DokuWiki_Admin_Plugin'  => DOKU_PLUGIN.'admin.php',
         'DokuWiki_Syntax_Plugin' => DOKU_PLUGIN.'syntax.php',
         'DokuWiki_Remote_Plugin' => DOKU_PLUGIN.'remote.php',
+        'DokuWiki_Auth_Plugin'   => DOKU_PLUGIN.'auth.php',
 
     );
 
@@ -95,7 +103,7 @@ function load_autoload($name){
     }
 
     // Plugin loading
-    if(preg_match('/^(helper|syntax|action|admin|renderer|remote)_plugin_('.DOKU_PLUGIN_NAME_REGEX.')(?:_([^_]+))?$/',
+    if(preg_match('/^(auth|helper|syntax|action|admin|renderer|remote)_plugin_('.DOKU_PLUGIN_NAME_REGEX.')(?:_([^_]+))?$/',
                   $name, $m)) {
         // try to load the wanted plugin file
         $c = ((count($m) === 4) ? "/{$m[3]}" : '');

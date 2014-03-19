@@ -54,7 +54,7 @@ $conf['hidepages']   = '';                //Regexp for pages to be skipped from 
 /* Authentication Settings */
 $conf['useacl']      = 0;                //Use Access Control Lists to restrict access?
 $conf['autopasswd']  = 1;                //autogenerate passwords and email them to user
-$conf['authtype']    = 'plain';          //which authentication backend should be used
+$conf['authtype']    = 'authplain';      //which authentication backend should be used
 $conf['passcrypt']   = 'smd5';           //Used crypt method (smd5,md5,sha1,ssha,crypt,mysql,my411)
 $conf['defaultgroup']= 'user';           //Default groups new Users are added to
 $conf['superuser']   = '!!not set!!';    //The admin can be user or @group or comma separated list user1,@group1,user2
@@ -96,7 +96,6 @@ $conf['target']['windows']   = '';
 /* Media Settings */
 $conf['mediarevisions'] = 1;             //enable/disable media revisions
 $conf['refcheck']    = 1;                //check for references before deleting media files
-$conf['refshow']     = 0;                //how many references should be shown, 5 is a good value
 $conf['gdlib']       = 2;                //the GDlib version (0, 1 or 2) 2 tries to autodetect
 $conf['im_convert']  = '';               //path to ImageMagicks convert (will be used instead of GD)
 $conf['jpg_quality'] = '70';             //quality of compression when scaling jpg images (0-100)

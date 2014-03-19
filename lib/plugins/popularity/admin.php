@@ -13,15 +13,15 @@ if(!defined('DOKU_INC')) die();
  * need to inherit from this class
  */
 class admin_plugin_popularity extends DokuWiki_Admin_Plugin {
-    var $version;
+
+    /**
+     * @var helper_plugin_popularity
+     */
     var $helper;
     var $sentStatus = null;
 
     function admin_plugin_popularity(){
         $this->helper = $this->loadHelper('popularity', false);
-
-        $pluginInfo = $this->getInfo();
-        $this->version = $pluginInfo['date'];
     }
 
     /**
@@ -118,9 +118,9 @@ class admin_plugin_popularity extends DokuWiki_Admin_Plugin {
 
     /**
      * Build the form which presents the data to be sent
-     * @param string $submit How is the data supposed to be sent? (may be: 'browser' or 'server')
+     * @param string $submissionMode How is the data supposed to be sent? (may be: 'browser' or 'server')
      * @param string $data   The popularity data, if it has already been computed. NULL otherwise.
-     * @return The form, as an html string
+     * @return string The form, as an html string
      */
     function buildForm($submissionMode, $data = null){
         $url = ($submissionMode === 'browser' ? $this->helper->submitUrl : script());

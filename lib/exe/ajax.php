@@ -45,6 +45,8 @@ function ajax_qsearch(){
     global $lang;
     global $INPUT;
 
+    $maxnumbersuggestions = 50;
+
     $query = $INPUT->post->str('q');
     if(empty($query)) $query = $INPUT->get->str('q');
     if(empty($query)) return;
@@ -57,6 +59,7 @@ function ajax_qsearch(){
 
     print '<strong>'.$lang['quickhits'].'</strong>';
     print '<ul>';
+    $counter = 0;
     foreach($data as $id => $title){
         if (useHeading('navigation')) {
             $name = $title;
@@ -69,6 +72,12 @@ function ajax_qsearch(){
             }
         }
         echo '<li>' . html_wikilink(':'.$id,$name) . '</li>';
+
+        $counter ++;
+        if($counter > $maxnumbersuggestions) {
+            echo '<li>...</li>';
+            break;
+        }
     }
     print '</ul>';
 }
@@ -210,10 +219,11 @@ function ajax_medialist(){
     global $INPUT;
 
     $NS = cleanID($INPUT->post->str('ns'));
+    $sort = $INPUT->post->bool('recent') ? 'date' : 'natural';
     if ($INPUT->post->str('do') == 'media') {
         tpl_mediaFileList();
     } else {
-        tpl_mediaContent(true);
+        tpl_mediaContent(true, $sort);
     }
 }
 

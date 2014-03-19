@@ -28,20 +28,6 @@ function html_wikilink($id,$name=null,$search=''){
 }
 
 /**
- * Helps building long attribute lists
- *
- * @deprecated Use buildAttributes instead
- * @author Andreas Gohr <andi@splitbrain.org>
- */
-function html_attbuild($attributes){
-    $ret = '';
-    foreach ( $attributes as $key => $value ) {
-        $ret .= $key.'="'.formText($value).'" ';
-    }
-    return trim($ret);
-}
-
-/**
  * The loginform
  *
  * @author   Andreas Gohr <andi@splitbrain.org>
@@ -428,7 +414,7 @@ function html_revisions($first=0, $media_id = false){
     global $conf;
     global $lang;
     $id = $ID;
-    /* we need to get one additionally log entry to be able to
+    /* we need to get one additional log entry to be able to
      * decide if this is the last page or is there another one.
      * see html_recent()
      */
@@ -575,18 +561,18 @@ function html_revisions($first=0, $media_id = false){
         if ($info['sum']) {
             $form->addElement(form_makeOpenTag('span', array('class' => 'sum')));
             if (!$media_id) $form->addElement(' – ');
-            $form->addElement(htmlspecialchars($info['sum']));
+            $form->addElement('<bdi>'.htmlspecialchars($info['sum']).'</bdi>');
             $form->addElement(form_makeCloseTag('span'));
         }
 
         $form->addElement(form_makeOpenTag('span', array('class' => 'user')));
         if($info['user']){
-            $form->addElement(editorinfo($info['user']));
+            $form->addElement('<bdi>'.editorinfo($info['user']).'</bdi>');
             if(auth_ismanager()){
-                $form->addElement(' ('.$info['ip'].')');
+                $form->addElement(' <bdo dir="ltr">('.$info['ip'].')</bdo>');
             }
         }else{
-            $form->addElement($info['ip']);
+            $form->addElement('<bdo dir="ltr">'.$info['ip'].'</bdo>');
         }
         $form->addElement(form_makeCloseTag('span'));
 
@@ -774,12 +760,12 @@ function html_recent($first=0, $show_changes='both'){
 
         $form->addElement(form_makeOpenTag('span', array('class' => 'user')));
         if($recent['user']){
-            $form->addElement(editorinfo($recent['user']));
+            $form->addElement('<bdi>'.editorinfo($recent['user']).'</bdi>');
             if(auth_ismanager()){
-                $form->addElement(' ('.$recent['ip'].')');
+                $form->addElement(' <bdo dir="ltr">('.$recent['ip'].')</bdo>');
             }
         }else{
-            $form->addElement($recent['ip']);
+            $form->addElement('<bdo dir="ltr">'.$recent['ip'].'</bdo>');
         }
         $form->addElement(form_makeCloseTag('span'));
 
@@ -854,12 +840,17 @@ function html_index($ns){
  * @author Andreas Gohr <andi@splitbrain.org>
  */
 function html_list_index($item){
-    global $ID;
+    global $ID, $conf;
+
+    // prevent searchbots needlessly following links
+    $nofollow = ($ID != $conf['start'] || $conf['sitemap']) ? ' rel="nofollow"' : '';
+
     $ret = '';
     $base = ':'.$item['id'];
     $base = substr($base,strrpos($base,':')+1);
     if($item['type']=='d'){
-        $ret .= '<a href="'.wl($ID,'idx='.rawurlencode($item['id'])).'" class="idx_dir"><strong>';
+        // FS#2766, no need for search bots to follow namespace links in the index
+        $ret .= '<a href="'.wl($ID,'idx='.rawurlencode($item['id'])).'" title="' . $item['id'] . '" class="idx_dir"' . $nofollow . '><strong>';
         $ret .= $base;
         $ret .= '</strong></a>';
     }else{
@@ -1003,14 +994,16 @@ function html_backlinks(){
  * @param string $r_rev   Right revision
  * @param string $id      Page id, if null $ID is used
  * @param bool   $media   If it is for media files
+ * @param bool   $inline  Return the header on a single line
  * @return array HTML snippets for diff header
  */
-function html_diff_head($l_rev, $r_rev, $id = null, $media = false) {
+function html_diff_head($l_rev, $r_rev, $id = null, $media = false, $inline = false) {
     global $lang;
     if ($id === null) {
         global $ID;
         $id = $ID;
     }
+    $head_separator = $inline ? ' ' : '<br />';
     $media_or_wikiFN = $media ? 'mediaFN' : 'wikiFN';
     $ml_or_wl = $media ? 'ml' : 'wl';
     $l_minor = $r_minor = '';
@@ -1020,54 +1013,54 @@ function html_diff_head($l_rev, $r_rev, $id = null, $media = false) {
     }else{
         $l_info   = getRevisionInfo($id,$l_rev,true, $media);
         if($l_info['user']){
-            $l_user = editorinfo($l_info['user']);
-            if(auth_ismanager()) $l_user .= ' ('.$l_info['ip'].')';
+            $l_user = '<bdi>'.editorinfo($l_info['user']).'</bdi>';
+            if(auth_ismanager()) $l_user .= ' <bdo dir="ltr">('.$l_info['ip'].')</bdo>';
         } else {
-            $l_user = $l_info['ip'];
+            $l_user = '<bdo dir="ltr">'.$l_info['ip'].'</bdo>';
         }
         $l_user  = '<span class="user">'.$l_user.'</span>';
-        $l_sum   = ($l_info['sum']) ? '<span class="sum">'.hsc($l_info['sum']).'</span>' : '';
+        $l_sum   = ($l_info['sum']) ? '<span class="sum"><bdi>'.hsc($l_info['sum']).'</bdi></span>' : '';
         if ($l_info['type']===DOKU_CHANGE_TYPE_MINOR_EDIT) $l_minor = 'class="minor"';
 
         $l_head_title = ($media) ? dformat($l_rev) : $id.' ['.dformat($l_rev).']';
-        $l_head = '<a class="wikilink1" href="'.$ml_or_wl($id,"rev=$l_rev").'">'.
-        $l_head_title.'</a>'.
-        '<br />'.$l_user.' '.$l_sum;
+        $l_head = '<bdi><a class="wikilink1" href="'.$ml_or_wl($id,"rev=$l_rev").'">'.
+        $l_head_title.'</a></bdi>'.
+        $head_separator.$l_user.' '.$l_sum;
     }
 
     if($r_rev){
         $r_info   = getRevisionInfo($id,$r_rev,true, $media);
         if($r_info['user']){
-            $r_user = editorinfo($r_info['user']);
-            if(auth_ismanager()) $r_user .= ' ('.$r_info['ip'].')';
+            $r_user = '<bdi>'.editorinfo($r_info['user']).'</bdi>';
+            if(auth_ismanager()) $r_user .= ' <bdo dir="ltr">('.$r_info['ip'].')</bdo>';
         } else {
-            $r_user = $r_info['ip'];
+            $r_user = '<bdo dir="ltr">'.$r_info['ip'].'</bdo>';
         }
         $r_user = '<span class="user">'.$r_user.'</span>';
-        $r_sum  = ($r_info['sum']) ? '<span class="sum">'.hsc($r_info['sum']).'</span>' : '';
+        $r_sum  = ($r_info['sum']) ? '<span class="sum"><bdi>'.hsc($r_info['sum']).'</bdi></span>' : '';
         if ($r_info['type']===DOKU_CHANGE_TYPE_MINOR_EDIT) $r_minor = 'class="minor"';
 
         $r_head_title = ($media) ? dformat($r_rev) : $id.' ['.dformat($r_rev).']';
-        $r_head = '<a class="wikilink1" href="'.$ml_or_wl($id,"rev=$r_rev").'">'.
-        $r_head_title.'</a>'.
-        '<br />'.$r_user.' '.$r_sum;
+        $r_head = '<bdi><a class="wikilink1" href="'.$ml_or_wl($id,"rev=$r_rev").'">'.
+        $r_head_title.'</a></bdi>'.
+        $head_separator.$r_user.' '.$r_sum;
     }elseif($_rev = @filemtime($media_or_wikiFN($id))){
         $_info   = getRevisionInfo($id,$_rev,true, $media);
         if($_info['user']){
-            $_user = editorinfo($_info['user']);
-            if(auth_ismanager()) $_user .= ' ('.$_info['ip'].')';
+            $_user = '<bdi>'.editorinfo($_info['user']).'</bdi>';
+            if(auth_ismanager()) $_user .= ' <bdo dir="ltr">('.$_info['ip'].')</bdo>';
         } else {
-            $_user = $_info['ip'];
+            $_user = '<bdo dir="ltr">'.$_info['ip'].'</bdo>';
         }
         $_user = '<span class="user">'.$_user.'</span>';
-        $_sum  = ($_info['sum']) ? '<span class="sum">'.hsc($_info['sum']).'</span>' : '';
+        $_sum  = ($_info['sum']) ? '<span class="sum"><bdi>'.hsc($_info['sum']).'</span></bdi>' : '';
         if ($_info['type']===DOKU_CHANGE_TYPE_MINOR_EDIT) $r_minor = 'class="minor"';
 
         $r_head_title = ($media) ? dformat($_rev) : $id.' ['.dformat($_rev).']';
-        $r_head  = '<a class="wikilink1" href="'.$ml_or_wl($id).'">'.
-        $r_head_title.'</a> '.
+        $r_head  = '<bdi><a class="wikilink1" href="'.$ml_or_wl($id).'">'.
+        $r_head_title.'</a></bdi> '.
         '('.$lang['current'].')'.
-        '<br />'.$_user.' '.$_sum;
+        $head_separator.$_user.' '.$_sum;
     }else{
         $r_head = '&mdash; ('.$lang['current'].')';
     }
@@ -1088,8 +1081,17 @@ function html_diff($text='',$intro=true,$type=null){
     global $REV;
     global $lang;
     global $INPUT;
+    global $INFO;
 
-    if(!$type) $type = $INPUT->str('difftype');
+    if(!$type) {
+        $type = $INPUT->str('difftype');
+        if (empty($type)) {
+            $type = get_doku_pref('difftype', $type);
+            if (empty($type) && $INFO['ismobile']) {
+                $type = 'inline';
+            }
+        }
+    }
     if($type != 'inline') $type = 'sidebyside';
 
     // we're trying to be clever here, revisions to compare can be either
@@ -1151,11 +1153,10 @@ function html_diff($text='',$intro=true,$type=null){
         }
         $r_text = rawWiki($ID,$r_rev);
 
-        list($l_head, $r_head, $l_minor, $r_minor) = html_diff_head($l_rev, $r_rev);
+        list($l_head, $r_head, $l_minor, $r_minor) = html_diff_head($l_rev, $r_rev, null, false, $type == 'inline');
     }
 
-    $df = new Diff(explode("\n",htmlspecialchars($l_text)),
-        explode("\n",htmlspecialchars($r_text)));
+    $df = new Diff(explode("\n",$l_text),explode("\n",$r_text));
 
     if($type == 'inline'){
         $tdf = new InlineDiffFormatter();
@@ -1197,6 +1198,18 @@ function html_diff($text='',$intro=true,$type=null){
     ?>
     <div class="table">
     <table class="diff diff_<?php echo $type?>">
+    <?php if ($type == 'inline') { ?>
+    <tr>
+    <th class="diff-lineheader">-</th><th <?php echo $l_minor?>>
+    <?php echo $l_head?>
+    </th>
+    </tr>
+    <tr>
+    <th class="diff-lineheader">+</th><th <?php echo $r_minor?>>
+    <?php echo $r_head?>
+    </th>
+    </tr>
+    <?php } else { ?>
     <tr>
     <th colspan="2" <?php echo $l_minor?>>
     <?php echo $l_head?>
@@ -1205,10 +1218,37 @@ function html_diff($text='',$intro=true,$type=null){
     <?php echo $r_head?>
     </th>
     </tr>
-    <?php echo $tdf->format($df)?>
+    <?php }
+    echo html_insert_softbreaks($tdf->format($df)); ?>
     </table>
     </div>
     <?php
+}
+
+function html_insert_softbreaks($diffhtml) {
+    // search the diff html string for both:
+    // - html tags, so these can be ignored
+    // - long strings of characters without breaking characters
+    return preg_replace_callback('/<[^>]*>|[^<> ]{12,}/','html_softbreak_callback',$diffhtml);
+}
+
+function html_softbreak_callback($match){
+    // if match is an html tag, return it intact
+    if ($match[0]{0} == '<') return $match[0];
+
+    // its a long string without a breaking character,
+    // make certain characters into breaking characters by inserting a
+    // breaking character (zero length space, U+200B / #8203) in front them.
+    $regex = <<< REGEX
+(?(?=                                 # start a conditional expression with a positive look ahead ...
+&\#?\\w{1,6};)                        # ... for html entities - we don't want to split them (ok to catch some invalid combinations)
+&\#?\\w{1,6};                         # yes pattern - a quicker match for the html entity, since we know we have one
+|
+[?/,&\#;:]                            # no pattern - any other group of 'special' characters to insert a breaking character after
+)+                                    # end conditional expression
+REGEX;
+
+    return preg_replace('<'.$regex.'>xu','\0&#8203;',$match[0]);
 }
 
 /**
@@ -1248,9 +1288,11 @@ function html_msgarea(){
     foreach($MSG as $msg){
         $hash = md5($msg['msg']);
         if(isset($shown[$hash])) continue; // skip double messages
-        print '<div class="'.$msg['lvl'].'">';
-        print $msg['msg'];
-        print '</div>';
+        if(info_msg_allowed($msg)){
+            print '<div class="'.$msg['lvl'].'">';
+            print $msg['msg'];
+            print '</div>';
+        }
         $shown[$hash] = 1;
     }
 
@@ -1267,19 +1309,22 @@ function html_register(){
     global $conf;
     global $INPUT;
 
+    $base_attrs = array('size'=>50,'required'=>'required');
+    $email_attrs = $base_attrs + array('type'=>'email','class'=>'edit');
+
     print p_locale_xhtml('register');
     print '<div class="centeralign">'.NL;
     $form = new Doku_Form(array('id' => 'dw__register'));
     $form->startFieldset($lang['btn_register']);
     $form->addHidden('do', 'register');
     $form->addHidden('save', '1');
-    $form->addElement(form_makeTextField('login', $INPUT->post->str('login'), $lang['user'], '', 'block', array('size'=>'50')));
+    $form->addElement(form_makeTextField('login', $INPUT->post->str('login'), $lang['user'], '', 'block', $base_attrs));
     if (!$conf['autopasswd']) {
-        $form->addElement(form_makePasswordField('pass', $lang['pass'], '', 'block', array('size'=>'50')));
-        $form->addElement(form_makePasswordField('passchk', $lang['passchk'], '', 'block', array('size'=>'50')));
+        $form->addElement(form_makePasswordField('pass', $lang['pass'], '', 'block', $base_attrs));
+        $form->addElement(form_makePasswordField('passchk', $lang['passchk'], '', 'block', $base_attrs));
     }
-    $form->addElement(form_makeTextField('fullname', $INPUT->post->str('fullname'), $lang['fullname'], '', 'block', array('size'=>'50')));
-    $form->addElement(form_makeTextField('email', $INPUT->post->str('email'), $lang['email'], '', 'block', array('size'=>'50')));
+    $form->addElement(form_makeTextField('fullname', $INPUT->post->str('fullname'), $lang['fullname'], '', 'block', $base_attrs));
+    $form->addElement(form_makeField('email','email', $INPUT->post->str('email'), $lang['email'], '', 'block', $email_attrs));
     $form->addElement(form_makeButton('submit', '', $lang['btn_register']));
     $form->endFieldset();
     html_form('register', $form);
@@ -1302,10 +1347,10 @@ function html_updateprofile(){
     global $auth;
 
     print p_locale_xhtml('updateprofile');
+    print '<div class="centeralign">'.NL;
 
     $fullname = $INPUT->post->str('fullname', $INFO['userinfo']['name'], true);
     $email = $INPUT->post->str('email', $INFO['userinfo']['mail'], true);
-    print '<div class="centeralign">'.NL;
     $form = new Doku_Form(array('id' => 'dw__register'));
     $form->startFieldset($lang['profile']);
     $form->addHidden('do', 'profile');
@@ -1314,9 +1359,9 @@ function html_updateprofile(){
     $attr = array('size'=>'50');
     if (!$auth->canDo('modName')) $attr['disabled'] = 'disabled';
     $form->addElement(form_makeTextField('fullname', $fullname, $lang['fullname'], '', 'block', $attr));
-    $attr = array('size'=>'50');
+    $attr = array('size'=>'50', 'class'=>'edit');
     if (!$auth->canDo('modMail')) $attr['disabled'] = 'disabled';
-    $form->addElement(form_makeTextField('email', $email, $lang['email'], '', 'block', $attr));
+    $form->addElement(form_makeField('email','email', $email, $lang['email'], '', 'block', $attr));
     $form->addElement(form_makeTag('br'));
     if ($auth->canDo('modPass')) {
         $form->addElement(form_makePasswordField('newpass', $lang['newpass'], '', 'block', array('size'=>'50')));
@@ -1324,12 +1369,30 @@ function html_updateprofile(){
     }
     if ($conf['profileconfirm']) {
         $form->addElement(form_makeTag('br'));
-        $form->addElement(form_makePasswordField('oldpass', $lang['oldpass'], '', 'block', array('size'=>'50')));
+        $form->addElement(form_makePasswordField('oldpass', $lang['oldpass'], '', 'block', array('size'=>'50', 'required' => 'required')));
     }
     $form->addElement(form_makeButton('submit', '', $lang['btn_save']));
     $form->addElement(form_makeButton('reset', '', $lang['btn_reset']));
+
     $form->endFieldset();
     html_form('updateprofile', $form);
+
+    if ($auth->canDo('delUser') && actionOK('profile_delete')) {
+        $form_profiledelete = new Doku_Form(array('id' => 'dw__profiledelete'));
+        $form_profiledelete->startFieldset($lang['profdeleteuser']);
+        $form_profiledelete->addHidden('do', 'profile_delete');
+        $form_profiledelete->addHidden('delete', '1');
+        $form_profiledelete->addElement(form_makeCheckboxField('confirm_delete', '1', $lang['profconfdelete'],'dw__confirmdelete','', array('required' => 'required')));
+        if ($conf['profileconfirm']) {
+            $form_profiledelete->addElement(form_makeTag('br'));
+            $form_profiledelete->addElement(form_makePasswordField('oldpass', $lang['oldpass'], '', 'block', array('size'=>'50', 'required' => 'required')));
+        }
+        $form_profiledelete->addElement(form_makeButton('submit', '', $lang['btn_deleteuser']));
+        $form_profiledelete->endFieldset();
+
+        html_form('profiledelete', $form_profiledelete);
+    }
+
     print '</div>'.NL;
 }
 
@@ -1390,8 +1453,7 @@ function html_edit(){
     $data = array('form' => $form,
                   'wr'   => $wr,
                   'media_manager' => true,
-                  'target' => ($INPUT->has('target') && $wr &&
-                               $RANGE !== '') ? $INPUT->str('target') : 'section',
+                  'target' => ($INPUT->has('target') && $wr) ? $INPUT->str('target') : 'section',
                   'intro_locale' => $include);
 
     if ($data['target'] !== 'section') {
@@ -1438,9 +1500,9 @@ function html_edit(){
         echo 'textChanged = ' . ($mod ? 'true' : 'false');
         echo '/*!]]>*/</script>' . NL;
     } ?>
-    <div class="editBox">
+    <div class="editBox" role="application">
 
-    <div class="toolbar">
+    <div class="toolbar group">
         <div id="draft__status"><?php if(!empty($INFO['draft'])) echo $lang['draftdate'].' '.dformat();?></div>
         <div id="tool__bar"><?php if ($wr && $data['media_manager']){?><a href="<?php echo DOKU_BASE?>lib/exe/mediamanager.php?ns=<?php echo $INFO['namespace']?>"
             target="_blank"><?php echo $lang['mediaselect'] ?></a><?php }?></div>
@@ -1553,7 +1615,9 @@ function html_debug(){
 
     if($auth){
         print '<b>Auth backend capabilities:</b><pre>';
-        print_r($auth->cando);
+        foreach ($auth->getCapabilities() as $cando){
+            print '   '.str_pad($cando,16) . ' => ' . (int)$auth->canDo($cando) . NL;
+        }
         print '</pre>';
     }
 
@@ -1583,7 +1647,7 @@ function html_admin(){
     global $ID;
     global $INFO;
     global $conf;
-    /** @var auth_basic $auth */
+    /** @var DokuWiki_Auth_Plugin $auth */
     global $auth;
 
     // build menu of admin functions from the plugins that handle them
@@ -1591,7 +1655,7 @@ function html_admin(){
     $menu = array();
     foreach ($pluginlist as $p) {
         /** @var DokuWiki_Admin_Plugin $obj */
-        if($obj =& plugin_load('admin',$p) === null) continue;
+        if(($obj = plugin_load('admin',$p)) === null) continue;
 
         // check permissions
         if($obj->forAdminOnly() && !$INFO['isadmin']) continue;
@@ -1603,11 +1667,16 @@ function html_admin(){
     }
 
     // data security check
-    // @todo: could be checked and only displayed if $conf['savedir'] is under the web root
-    echo '<a style="border:none; float:right;"
-            href="http://www.dokuwiki.org/security#web_access_security">
-            <img src="data/security.png" alt="Your data directory seems to be protected properly."
-             onerror="this.parentNode.style.display=\'none\'" /></a>';
+    // simple check if the 'savedir' is relative and accessible when appended to DOKU_URL
+    // it verifies either:
+    //   'savedir' has been moved elsewhere, or
+    //   has protection to prevent the webserver serving files from it
+    if (substr($conf['savedir'],0,2) == './'){
+        echo '<a style="border:none; float:right;"
+                href="http://www.dokuwiki.org/security#web_access_security">
+                <img src="'.DOKU_URL.$conf['savedir'].'/security.png" alt="Your data directory seems to be protected properly."
+                onerror="this.parentNode.style.display=\'none\'" /></a>';
+    }
 
     print p_locale_xhtml('admin');
 

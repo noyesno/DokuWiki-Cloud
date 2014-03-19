@@ -9,7 +9,7 @@
  */
 
 // update message version
-$updateVersion = 38;
+$updateVersion = 43;
 
 //  xdebug_start_profiling();
 
@@ -29,7 +29,7 @@ if(isset($_SERVER['HTTP_X_DOKUWIKI_DO'])) {
 require_once(DOKU_INC.'inc/init.php');
 
 //import variables
-$_REQUEST['id'] = str_replace("\xC2\xAD", '', $INPUT->str('id')); //soft-hyphen
+$INPUT->set('id', str_replace("\xC2\xAD", '', $INPUT->str('id'))); //soft-hyphen
 $QUERY          = trim($INPUT->str('id'));
 $ID             = getID();
 
@@ -47,10 +47,10 @@ $PRE = cleanText(substr($INPUT->post->str('prefix'), 0, -1));
 $SUF = cleanText($INPUT->post->str('suffix'));
 $SUM = $INPUT->post->str('summary');
 
-//make infos about the selected page available
+//make info about the selected page available
 $INFO = pageinfo();
 
-//export minimal infos to JS, plugins can add more
+//export minimal info to JS, plugins can add more
 $JSINFO['id']        = $ID;
 $JSINFO['namespace'] = (string) $INFO['namespace'];
 
@@ -80,8 +80,8 @@ trigger_event('DOKUWIKI_STARTED', $tmp);
 //close session
 session_write_close();
 
-//do the work
-act_dispatch($ACT);
+//do the work (picks up what to do from global env)
+act_dispatch();
 
 $tmp = array(); // No event data
 trigger_event('DOKUWIKI_DONE', $tmp);

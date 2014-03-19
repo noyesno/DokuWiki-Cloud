@@ -56,7 +56,7 @@ function stripctl($string) {
  * @return  string
  */
 function getSecurityToken() {
-    return md5(auth_cookiesalt().session_id().$_SERVER['REMOTE_USER']);
+    return PassHash::hmac('md5', session_id().$_SERVER['REMOTE_USER'], auth_cookiesalt());
 }
 
 /**
@@ -64,7 +64,7 @@ function getSecurityToken() {
  */
 function checkSecurityToken($token = null) {
     global $INPUT;
-    if(!$_SERVER['REMOTE_USER']) return true; // no logged in user, no need for a check
+    if(empty($_SERVER['REMOTE_USER'])) return true; // no logged in user, no need for a check
 
     if(is_null($token)) $token = $INPUT->str('sectok');
     if(getSecurityToken() != $token) {
@@ -86,30 +86,20 @@ function formSecurityToken($print = true) {
 }
 
 /**
- * Return info about the current document as associative
- * array.
+ * Determine basic information for a request of $id
  *
  * @author Andreas Gohr <andi@splitbrain.org>
+ * @author Chris Smith <chris@jalakai.co.uk>
  */
-function pageinfo() {
-    global $ID;
-    global $REV;
-    global $RANGE;
+function basicinfo($id, $htmlClient=true){
     global $USERINFO;
-    global $lang;
-
-    // include ID & REV not redundant, as some parts of DokuWiki may temporarily change $ID, e.g. p_wiki_xhtml
-    // FIXME ... perhaps it would be better to ensure the temporary changes weren't necessary
-    $info['id']  = $ID;
-    $info['rev'] = $REV;
 
     // set info about manager/admin status.
     $info['isadmin']   = false;
     $info['ismanager'] = false;
     if(isset($_SERVER['REMOTE_USER'])) {
         $info['userinfo']   = $USERINFO;
-        $info['perm']       = auth_quickaclcheck($ID);
-        $info['subscribed'] = get_info_subscribed();
+        $info['perm']       = auth_quickaclcheck($id);
         $info['client']     = $_SERVER['REMOTE_USER'];
 
         if($info['perm'] == AUTH_ADMIN) {
@@ -125,12 +115,46 @@ function pageinfo() {
         }
 
     } else {
-        $info['perm']       = auth_aclcheck($ID, '', null);
-        $info['subscribed'] = false;
+        $info['perm']       = auth_aclcheck($id, '', null);
         $info['client']     = clientIP(true);
     }
 
-    $info['namespace'] = getNS($ID);
+    $info['namespace'] = getNS($id);
+
+    // mobile detection
+    if ($htmlClient) {
+        $info['ismobile'] = clientismobile();
+    }
+
+    return $info;
+ }
+
+/**
+ * Return info about the current document as associative
+ * array.
+ *
+ * @author Andreas Gohr <andi@splitbrain.org>
+ */
+function pageinfo() {
+    global $ID;
+    global $REV;
+    global $RANGE;
+    global $lang;
+
+    $info = basicinfo($ID);
+
+    // include ID & REV not redundant, as some parts of DokuWiki may temporarily change $ID, e.g. p_wiki_xhtml
+    // FIXME ... perhaps it would be better to ensure the temporary changes weren't necessary
+    $info['id']  = $ID;
+    $info['rev'] = $REV;
+
+    if(isset($_SERVER['REMOTE_USER'])) {
+        $sub = new Subscription();
+        $info['subscribed'] = $sub->user_subscription();
+    } else {
+        $info['subscribed'] = false;
+    }
+
     $info['locked']    = checklock($ID);
     $info['filepath']  = fullpath(wikiFN($ID));
     $info['exists']    = @file_exists($info['filepath']);
@@ -208,8 +232,18 @@ function pageinfo() {
         }
     }
 
-    // mobile detection
-    $info['ismobile'] = clientismobile();
+    return $info;
+}
+
+/**
+ * Return information about the current media item as an associative array.
+ */
+function mediainfo(){
+    global $NS;
+    global $IMG;
+
+    $info = basicinfo("$NS:*");
+    $info['image'] = $IMG;
 
     return $info;
 }
@@ -309,7 +343,11 @@ function breadcrumbs() {
  *
  * This is run on a ID before it is outputted somewhere
  * currently used to replace the colon with something else
- * on Windows systems and to have proper URL encoding
+ * on Windows (non-IIS) systems and to have proper URL encoding
+ *
+ * See discussions at https://github.com/splitbrain/dokuwiki/pull/84 and
+ * https://github.com/splitbrain/dokuwiki/pull/173 why we use a whitelist of
+ * unaffected servers instead of blacklisting affected servers here.
  *
  * Urlencoding is ommitted when the second parameter is false
  *
@@ -320,7 +358,8 @@ function idfilter($id, $ue = true) {
     if($conf['useslash'] && $conf['userewrite']) {
         $id = strtr($id, ':', '/');
     } elseif(strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' &&
-        $conf['userewrite']
+        $conf['userewrite'] &&
+        strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') === false
     ) {
         $id = strtr($id, ':', ';');
     }
@@ -428,14 +467,32 @@ function exportlink($id = '', $format = 'raw', $more = '', $abs = false, $sep = 
  */
 function ml($id = '', $more = '', $direct = true, $sep = '&amp;', $abs = false) {
     global $conf;
+    $isexternalimage = media_isexternal($id);
+    if(!$isexternalimage) {
+        $id = cleanID($id);
+    }
+
     if(is_array($more)) {
+        // add token for resized images
+        if(!empty($more['w']) || !empty($more['h']) || $isexternalimage){
+            $more['tok'] = media_get_token($id,$more['w'],$more['h']);
+        }
         // strip defaults for shorter URLs
         if(isset($more['cache']) && $more['cache'] == 'cache') unset($more['cache']);
-        if(!$more['w']) unset($more['w']);
-        if(!$more['h']) unset($more['h']);
+        if(empty($more['w'])) unset($more['w']);
+        if(empty($more['h'])) unset($more['h']);
         if(isset($more['id']) && $direct) unset($more['id']);
         $more = buildURLparams($more, $sep);
     } else {
+        $matches = array();
+        if (preg_match_all('/\b(w|h)=(\d*)\b/',$more,$matches,PREG_SET_ORDER) || $isexternalimage){
+            $resize = array('w'=>0, 'h'=>0);
+            foreach ($matches as $match){
+                $resize[$match[1]] = $match[2];
+            }
+            $more .= $more === '' ? '' : $sep;
+            $more .= 'tok='.media_get_token($id,$resize['w'],$resize['h']);
+        }
         $more = str_replace('cache=cache', '', $more); //skip default
         $more = str_replace(',,', ',', $more);
         $more = str_replace(',', $sep, $more);
@@ -448,16 +505,10 @@ function ml($id = '', $more = '', $direct = true, $sep = '&amp;', $abs = false) 
     }
 
     // external URLs are always direct without rewriting
-    if(preg_match('#^(https?|ftp)://#i', $id)) {
+    if($isexternalimage) {
         $xlink .= 'lib/exe/fetch.php';
-        // add hash:
-        $xlink .= '?hash='.substr(md5(auth_cookiesalt().$id), 0, 6);
-        if($more) {
-            $xlink .= $sep.$more;
-            $xlink .= $sep.'media='.rawurlencode($id);
-        } else {
-            $xlink .= $sep.'media='.rawurlencode($id);
-        }
+        $xlink .= '?'.$more;
+        $xlink .= $sep.'media='.rawurlencode($id);
         return $xlink;
     }
 
@@ -539,12 +590,13 @@ function checkwordblock($text = '') {
     global $TEXT;
     global $PRE;
     global $SUF;
+    global $SUM;
     global $conf;
     global $INFO;
 
     if(!$conf['usewordblock']) return false;
 
-    if(!$text) $text = "$PRE $TEXT $SUF";
+    if(!$text) $text = "$PRE $TEXT $SUF $SUM";
 
     // we prepare the text a tiny bit to prevent spammers circumventing URL checks
     $text = preg_replace('!(\b)(www\.[\w.:?\-;,]+?\.[\w.:?\-;,]+?[\w/\#~:.?+=&%@\!\-.:?\-;,]+?)([.:?\-;,]*[^\w/\#~:.?+=&%@\!\-.:?\-;,])!i', '\1http://\2 \2\3', $text);
@@ -776,11 +828,19 @@ function unlock($id) {
 /**
  * convert line ending to unix format
  *
+ * also makes sure the given text is valid UTF-8
+ *
  * @see    formText() for 2crlf conversion
  * @author Andreas Gohr <andi@splitbrain.org>
  */
 function cleanText($text) {
     $text = preg_replace("/(\015\012)|(\015)/", "\012", $text);
+
+    // if the text is not valid UTF-8 we simply assume latin1
+    // this won't break any worse than it breaks with the wrong encoding
+    // but might actually fix the problem in many cases
+    if(!utf8_check($text)) $text = utf8_encode($text);
+
     return $text;
 }
 
@@ -1071,7 +1131,7 @@ function saveWikiText($id, $text, $summary, $minor = false) {
 
     // if useheading is enabled, purge the cache of all linking pages
     if(useHeading('content')) {
-        $pages = ft_backlinks($id);
+        $pages = ft_backlinks($id, true);
         foreach($pages as $page) {
             $cache = new cache_renderer($page, wikiFN($page), 'xhtml');
             $cache->removeCache();
@@ -1109,90 +1169,31 @@ function saveOldRevision($id) {
  * @author Andreas Gohr <andi@splitbrain.org>
  */
 function notify($id, $who, $rev = '', $summary = '', $minor = false, $replace = array()) {
-    global $lang;
     global $conf;
-    global $INFO;
-    global $DIFF_INLINESTYLES;
 
     // decide if there is something to do, eg. whom to mail
     if($who == 'admin') {
         if(empty($conf['notify'])) return false; //notify enabled?
-        $text = rawLocale('mailtext');
-        $to   = $conf['notify'];
-        $bcc  = '';
+        $tpl = 'mailtext';
+        $to  = $conf['notify'];
     } elseif($who == 'subscribers') {
-        if(!$conf['subscribers']) return false; //subscribers enabled?
+        if(!actionOK('subscribe')) return false; //subscribers enabled?
         if($conf['useacl'] && $_SERVER['REMOTE_USER'] && $minor) return false; //skip minors
         $data = array('id' => $id, 'addresslist' => '', 'self' => false);
         trigger_event(
             'COMMON_NOTIFY_ADDRESSLIST', $data,
-            'subscription_addresslist'
+            array(new Subscription(), 'notifyaddresses')
         );
-        $bcc = $data['addresslist'];
-        if(empty($bcc)) return false;
-        $to   = '';
-        $text = rawLocale('subscr_single');
-    } elseif($who == 'register') {
-        if(empty($conf['registernotify'])) return false;
-        $text = rawLocale('registermail');
-        $to   = $conf['registernotify'];
-        $bcc  = '';
+        $to = $data['addresslist'];
+        if(empty($to)) return false;
+        $tpl = 'subscr_single';
     } else {
         return false; //just to be safe
     }
 
-    // prepare replacements (keys not set in hrep will be taken from trep)
-    $trep = array(
-        'NEWPAGE' => wl($id, '', true, '&'),
-        'PAGE'    => $id,
-        'SUMMARY' => $summary
-    );
-    $trep = array_merge($trep, $replace);
-    $hrep = array();
-
     // prepare content
-    if($who == 'register') {
-        $subject = $lang['mail_new_user'].' '.$summary;
-    } elseif($rev) {
-        $subject         = $lang['mail_changed'].' '.$id;
-        $trep['OLDPAGE'] = wl($id, "rev=$rev", true, '&');
-        $old_content     = rawWiki($id, $rev);
-        $new_content     = rawWiki($id);
-        $df              = new Diff(explode("\n", $old_content),
-                                    explode("\n", $new_content));
-        $dformat         = new UnifiedDiffFormatter();
-        $tdiff           = $dformat->format($df);
-
-        $DIFF_INLINESTYLES = true;
-        $hdf               = new Diff(explode("\n", hsc($old_content)),
-                                      explode("\n", hsc($new_content)));
-        $dformat           = new InlineDiffFormatter();
-        $hdiff             = $dformat->format($hdf);
-        $hdiff             = '<table>'.$hdiff.'</table>';
-        $DIFF_INLINESTYLES = false;
-    } else {
-        $subject         = $lang['mail_newpage'].' '.$id;
-        $trep['OLDPAGE'] = '---';
-        $tdiff           = rawWiki($id);
-        $hdiff           = nl2br(hsc($tdiff));
-    }
-    $trep['DIFF'] = $tdiff;
-    $hrep['DIFF'] = $hdiff;
-
-    // send mail
-    $mail = new Mailer();
-    $mail->to($to);
-    $mail->bcc($bcc);
-    $mail->subject($subject);
-    $mail->setBody($text, $trep, $hrep);
-    if($who == 'subscribers') {
-        $mail->setHeader(
-            'List-Unsubscribe',
-            '<'.wl($id, array('do'=> 'subscribe'), true, '&').'>',
-            false
-        );
-    }
-    return $mail->send();
+    $subscription = new Subscription();
+    return $subscription->send_diff($to, $tpl, $id, $rev, $summary);
 }
 
 /**
@@ -1230,27 +1231,6 @@ function getGoogleQuery() {
     if(!$q) return '';
     $q = preg_split('/[\s\'"\\\\`()\]\[?:!\.{};,#+*<>\\/]+/', $q, -1, PREG_SPLIT_NO_EMPTY);
     return $q;
-}
-
-/**
- * Try to set correct locale
- *
- * @deprecated No longer used
- * @author     Andreas Gohr <andi@splitbrain.org>
- */
-function setCorrectLocale() {
-    global $conf;
-    global $lang;
-
-    $enc = strtoupper($lang['encoding']);
-    foreach($lang['locales'] as $loc) {
-        //try locale
-        if(@setlocale(LC_ALL, $loc)) return;
-        //try loceale with encoding
-        if(@setlocale(LC_ALL, "$loc.$enc")) return;
-    }
-    //still here? try to set from environment
-    @setlocale(LC_ALL, "");
 }
 
 /**
@@ -1609,18 +1589,51 @@ function valid_input_set($param, $valid_values, $array, $exc = '') {
 
 /**
  * Read a preference from the DokuWiki cookie
+ * (remembering both keys & values are urlencoded)
  */
 function get_doku_pref($pref, $default) {
-    if(strpos($_COOKIE['DOKU_PREFS'], $pref) !== false) {
+    $enc_pref = urlencode($pref);
+    if(strpos($_COOKIE['DOKU_PREFS'], $enc_pref) !== false) {
         $parts = explode('#', $_COOKIE['DOKU_PREFS']);
         $cnt   = count($parts);
         for($i = 0; $i < $cnt; $i += 2) {
-            if($parts[$i] == $pref) {
-                return $parts[$i + 1];
+            if($parts[$i] == $enc_pref) {
+                return urldecode($parts[$i + 1]);
             }
         }
     }
     return $default;
+}
+
+/**
+ * Add a preference to the DokuWiki cookie
+ * (remembering $_COOKIE['DOKU_PREFS'] is urlencoded)
+ */
+function set_doku_pref($pref, $val) {
+    global $conf;
+    $orig = get_doku_pref($pref, false);
+    $cookieVal = '';
+
+    if($orig && ($orig != $val)) {
+        $parts = explode('#', $_COOKIE['DOKU_PREFS']);
+        $cnt   = count($parts);
+        // urlencode $pref for the comparison
+        $enc_pref = rawurlencode($pref);
+        for($i = 0; $i < $cnt; $i += 2) {
+            if($parts[$i] == $enc_pref) {
+                $parts[$i + 1] = rawurlencode($val);
+                break;
+            }
+        }
+        $cookieVal = implode('#', $parts);
+    } else if (!$orig) {
+        $cookieVal = ($_COOKIE['DOKU_PREFS'] ? $_COOKIE['DOKU_PREFS'].'#' : '').rawurlencode($pref).'#'.rawurlencode($val);
+    }
+
+    if (!empty($cookieVal)) {
+        $cookieDir = empty($conf['cookiedir']) ? DOKU_REL : $conf['cookiedir'];
+        setcookie('DOKU_PREFS', $cookieVal, time()+365*24*3600, $cookieDir, '', ($conf['securecookie'] && is_ssl()));
+    }
 }
 
 //Setup VIM: ex: et ts=2 :

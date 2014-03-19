@@ -1,4 +1,4 @@
 
 
 strip:
-	find . -type d -path "*/lang/*" | grep -v -e '/zh$$' -e '/en$$' | xargs rm -rf
+	find . -type d -path "*/lang/*" | grep -v -e '/zh$$' -e '/en$$' -e ".htaccess" | xargs rm -rf

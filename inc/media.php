@@ -83,6 +83,32 @@ function media_metasave($id,$auth,$data){
 }
 
 /**
+ * check if a media is external source
+ *
+ * @author Gerrit Uitslag <klapinklapin@gmail.com>
+ * @param string $id the media ID or URL
+ * @return bool
+ */
+function media_isexternal($id){
+    if (preg_match('#^(?:https?|ftp)://#i', $id)) return true;
+    return false;
+}
+
+/**
+ * Check if a media item is public (eg, external URL or readable by @ALL)
+ *
+ * @author Andreas Gohr <andi@splitbrain.org>
+ * @param string $id  the media ID or URL
+ * @return bool
+ */
+function media_ispublic($id){
+    if(media_isexternal($id)) return true;
+    $id = cleanID($id);
+    if(auth_aclcheck(getNS($id).':*', '', array()) >= AUTH_READ) return true;
+    return false;
+}
+
+/**
  * Display the form to edit image meta data
  *
  * @author Andreas Gohr <andi@splitbrain.org>
@@ -152,7 +178,7 @@ function media_inuse($id) {
     global $conf;
     $mediareferences = array();
     if($conf['refcheck']){
-        $mediareferences = ft_mediause($id,$conf['refshow']);
+        $mediareferences = ft_mediause($id,true);
         if(!count($mediareferences)) {
             return false;
         } else {
@@ -237,8 +263,7 @@ function media_upload_xhr($ns,$auth){
     $realSize = stream_copy_to_stream($input, $target);
     fclose($target);
     fclose($input);
-    if ($realSize != (int)$_SERVER["CONTENT_LENGTH"]){
-        unlink($target);
+    if (isset($_SERVER["CONTENT_LENGTH"]) && ($realSize != (int)$_SERVER["CONTENT_LENGTH"])){
         unlink($path);
         return false;
     }
@@ -535,32 +560,13 @@ function media_contentcheck($file,$mime){
  * Send a notify mail on uploads
  *
  * @author Andreas Gohr <andi@splitbrain.org>
- * @fixme this should embed thumbnails of images in HTML version
  */
 function media_notify($id,$file,$mime,$old_rev=false){
-    global $lang;
     global $conf;
-    global $INFO;
     if(empty($conf['notify'])) return; //notify enabled?
 
-    $text = rawLocale('uploadmail');
-    $trep = array(
-                'MIME'  => $mime,
-                'MEDIA' => ml($id,'',true,'&',true),
-                'SIZE'  => filesize_h(filesize($file)),
-            );
-
-    if ($old_rev && $conf['mediarevisions']) {
-        $trep['OLD'] = ml($id, "rev=$old_rev", true, '&', true);
-    } else {
-        $trep['OLD'] = '---';
-    }
-
-    $mail = new Mailer();
-    $mail->to($conf['notify']);
-    $mail->subject($lang['mail_upload'].' '.$id);
-    $mail->setBody($text,$trep);
-    return $mail->send();
+    $subscription = new Subscription();
+    return $subscription->send_media_diff($conf['notify'], 'uploadmail', $id, $old_rev, '');
 }
 
 /**
@@ -580,7 +586,10 @@ function media_filelist($ns,$auth=null,$jump='',$fullscreenview=false,$sort=fals
         // FIXME: print permission warning here instead?
         echo '<div class="nothing">'.$lang['nothingfound'].'</div>'.NL;
     }else{
-        if (!$fullscreenview) media_uploadform($ns, $auth);
+        if (!$fullscreenview) {
+            media_uploadform($ns, $auth);
+            media_searchform($ns);
+        }
 
         $dir = utf8_encodeFN(str_replace(':','/',$ns));
         $data = array();
@@ -603,7 +612,6 @@ function media_filelist($ns,$auth=null,$jump='',$fullscreenview=false,$sort=fals
             if ($fullscreenview) echo '</ul>'.NL;
         }
     }
-    if (!$fullscreenview) media_searchform($ns);
 }
 
 /**
@@ -1288,7 +1296,7 @@ function media_restore($image, $rev, $auth){
  * @author Kate Arzamastseva <pshns@ukr.net>
  * @triggers MEDIA_SEARCH
  */
-function media_searchlist($query,$ns,$auth=null,$fullscreen=false,$sort=''){
+function media_searchlist($query,$ns,$auth=null,$fullscreen=false,$sort='natural'){
     global $conf;
     global $lang;
 
@@ -1308,15 +1316,10 @@ function media_searchlist($query,$ns,$auth=null,$fullscreen=false,$sort=''){
                     $conf['mediadir'],
                     'search_media',
                     array('showmsg'=>false,'pattern'=>$pattern),
-                    $dir);
+                    $dir,
+                    1,
+                    $sort);
         }
-
-        $data = array();
-        foreach ($evdata['data'] as $k => $v) {
-            $data[$k] = ($sort == 'date') ? $v['mtime'] : $v['id'];
-        }
-        array_multisort($data, SORT_DESC, SORT_NUMERIC, $evdata['data']);
-
         $evt->advise_after();
         unset($evt);
     }
@@ -1481,7 +1484,7 @@ function media_printfile_thumbs($item,$auth,$jump=false,$display_namespace=false
 }
 
 /**
- * Prints a thumbnail and metainfos
+ * Prints a thumbnail and metainfo
  */
 function media_printimgdetail($item, $fullscreen=false){
     // prepare thumbnail
@@ -1706,17 +1709,35 @@ function media_nstree($ns){
     $ns  = cleanID($ns);
     if(empty($ns)){
         global $ID;
-        $ns = dirname(str_replace(':','/',$ID));
-        if($ns == '.') $ns ='';
+        $ns = (string)getNS($ID);
     }
-    $ns  = utf8_encodeFN(str_replace(':','/',$ns));
+
+    $ns_dir  = utf8_encodeFN(str_replace(':','/',$ns));
 
     $data = array();
-    search($data,$conf['mediadir'],'search_index',array('ns' => $ns, 'nofiles' => true));
+    search($data,$conf['mediadir'],'search_index',array('ns' => $ns_dir, 'nofiles' => true));
 
     // wrap a list with the root level around the other namespaces
     array_unshift($data, array('level' => 0, 'id' => '', 'open' =>'true',
                                'label' => '['.$lang['mediaroot'].']'));
+
+    // insert the current ns into the hierarchy if it isn't already part of it
+    $ns_parts = explode(':', $ns);
+    $tmp_ns = '';
+    $pos = 0;
+    foreach ($ns_parts as $level => $part) {
+        if ($tmp_ns) $tmp_ns .= ':'.$part;
+        else $tmp_ns = $part;
+
+        // find the namespace parts or insert them
+        while ($data[$pos]['id'] != $tmp_ns) {
+            if ($pos >= count($data) || ($data[$pos]['level'] <= $level+1 && strnatcmp(utf8_encodeFN($data[$pos]['id']), utf8_encodeFN($tmp_ns)) > 0)) {
+                array_splice($data, $pos, 0, array(array('level' => $level+1, 'id' => $tmp_ns, 'open' => 'true')));
+                break;
+            }
+            ++$pos;
+        }
+    }
 
     echo html_buildlist($data,'idx','media_nstree_item','media_nstree_li');
 }
@@ -1783,6 +1804,9 @@ function media_resize_image($file, $ext, $w, $h=0){
     // we wont scale up to infinity
     if($w > 2000 || $h > 2000) return $file;
 
+    // resize necessary? - (w,h) = native dimensions
+    if(($w == $info[0]) && ($h == $info[1])) return $file;
+
     //cache
     $local = getCacheName($file,'.media.'.$w.'x'.$h.'.'.$ext);
     $mtime = @filemtime($local); // 0 if not exists
@@ -1816,26 +1840,33 @@ function media_crop_image($file, $ext, $w, $h=0){
     // calculate crop size
     $fr = $info[0]/$info[1];
     $tr = $w/$h;
+
+    // check if the crop can be handled completely by resize,
+    // i.e. the specified width & height match the aspect ratio of the source image
+    if ($w == round($h*$fr)) {
+        return media_resize_image($file, $ext, $w);
+    }
+
     if($tr >= 1){
         if($tr > $fr){
             $cw = $info[0];
-            $ch = (int) $info[0]/$tr;
+            $ch = (int) ($info[0]/$tr);
         }else{
-            $cw = (int) $info[1]*$tr;
+            $cw = (int) ($info[1]*$tr);
             $ch = $info[1];
         }
     }else{
         if($tr < $fr){
-            $cw = (int) $info[1]*$tr;
+            $cw = (int) ($info[1]*$tr);
             $ch = $info[1];
         }else{
             $cw = $info[0];
-            $ch = (int) $info[0]/$tr;
+            $ch = (int) ($info[0]/$tr);
         }
     }
     // calculate crop offset
-    $cx = (int) ($info[0]-$cw)/2;
-    $cy = (int) ($info[1]-$ch)/3;
+    $cx = (int) (($info[0]-$cw)/2);
+    $cy = (int) (($info[1]-$ch)/3);
 
     //cache
     $local = getCacheName($file,'.media.'.$cw.'x'.$ch.'.crop.'.$ext);
@@ -1850,6 +1881,31 @@ function media_crop_image($file, $ext, $w, $h=0){
 
     //still here? cropping failed
     return media_resize_image($file,$ext, $w, $h);
+}
+
+/**
+ * Calculate a token to be used to verify fetch requests for resized or
+ * cropped images have been internally generated - and prevent external
+ * DDOS attacks via fetch
+ *
+ * @author Christopher Smith <chris@jalakai.co.uk>
+ *
+ * @param string  $id    id of the image
+ * @param int     $w     resize/crop width
+ * @param int     $h     resize/crop height
+ * @return string
+ */
+function media_get_token($id,$w,$h){
+    // token is only required for modified images
+    if ($w || $h || media_isexternal($id)) {
+        $token = $id;
+        if ($w) $token .= '.'.$w;
+        if ($h) $token .= '.'.$h;
+
+        return substr(PassHash::hmac('md5', $token, auth_cookiesalt()),0,6);
+    }
+
+    return '';
 }
 
 /**
@@ -1897,6 +1953,8 @@ function media_get_from_URL($url,$ext,$cache){
 function media_image_download($url,$file){
     global $conf;
     $http = new DokuHTTPClient();
+    $http->keep_alive = false; // we do single ops here, no need for keep-alive
+
     $http->max_bodysize = $conf['fetchsize'];
     $http->timeout = 25; //max. 25 sec
     $http->header_regexp = '!\r\nContent-Type: image/(jpe?g|gif|png)!i';

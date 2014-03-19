@@ -413,7 +413,7 @@ function io_mkdir_p($target){
             return io_mkdir_ftp($dir);
         }else{
             $ret = @mkdir($target,$conf['dmode']); // crawl back up & create dir tree
-            if($ret && $conf['dperm']) chmod($target, $conf['dperm']);
+            if($ret && !empty($conf['dperm'])) chmod($target, $conf['dperm']);
             return $ret;
         }
     }
@@ -494,6 +494,7 @@ function io_download($url,$file,$useAttachment=false,$defaultName='',$maxSize=20
     $http = new DokuHTTPClient();
     $http->max_bodysize = $maxSize;
     $http->timeout = 25; //max. 25 sec
+    $http->keep_alive = false; // we do single ops here, no need for keep-alive
 
     $data = $http->get($url);
     if(!$data) return false;
@@ -546,25 +547,6 @@ function io_rename($from,$to){
         return false;
     }
     return true;
-}
-
-
-/**
- * Runs an external command and returns its output as string
- *
- * @author Harry Brueckner <harry_b@eml.cc>
- * @author Andreas Gohr <andi@splitbrain.org>
- * @deprecated
- */
-function io_runcmd($cmd){
-    $fh = popen($cmd, "r");
-    if(!$fh) return false;
-    $ret = '';
-    while (!feof($fh)) {
-        $ret .= fread($fh, 8192);
-    }
-    pclose($fh);
-    return $ret;
 }
 
 /**

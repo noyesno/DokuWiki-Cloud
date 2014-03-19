@@ -1,10 +1,13 @@
 <?php
 
+$conf['debug'] = 0;
+
 // $conf['title'] = 'DokuWiki';
 // $conf['lang'] = 'zh';
 // $conf['license'] = 'cc-by-sa';
 // $conf['useacl'] = 1;
 // $conf['superuser'] = '@admin';
+
 
 $conf['updatecheck'] = 0;
 $conf['userewrite']  = 1;                //this makes nice URLs: 0: off 1: .htaccess 2: internal

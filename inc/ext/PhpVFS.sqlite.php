@@ -27,7 +27,7 @@ class PhpVFS_Sqlite {
         $data = $record['data'];
         $stat = $record['stat'];
         // unset($record['mtime']); unset($record['ctime']);
-        debug_log("mysql get $domain/$path: ".strlen($record['data']));
+        debug_log("sqlite get $domain/$path: ".strlen($record['data']));
       }
 
       return is_null($record)?false:$record;
@@ -41,14 +41,15 @@ class PhpVFS_Sqlite {
       $ctime = $mtime;
       $stat['mtime'] = $mtime;
       $table = $domain;
-      $sql = "INSERT INTO `$table` (path,mtime,ctime,data) VALUES ('$path',$mtime,$ctime,"
+      $sql = "INSERT OR REPLACE INTO `$table` (path,mtime,ctime,data) VALUES ('$path',$mtime,$ctime,"
             .$this->dbh->quote($data).")";
 
+      #echo $sql;
       $result = $this->dbh->query($sql);
       if(!$result) print_r($this->dbh->errorInfo());
       $id = $this->dbh->lastInsertId();
       
-      debug_log("mysql set $domain/$path: ".strlen($data));
+      debug_log("sqlite set $domain/$path: ".strlen($data));
       return $result;
    }
 

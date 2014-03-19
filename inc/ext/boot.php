@@ -1,7 +1,8 @@
 <?php
 
+global $conf;
 define('IS_SAE', function_exists('sae_debug'));
-define('IS_DEBUG', !empty($_GET['_debug']));
+define('IS_DEBUG', $conf['debug'] || !empty($_GET['_debug']));
 
 include(DOKU_INC.'inc/ext/PhpVFS.php');
 
@@ -36,7 +37,7 @@ function debug_log($msg=null, $force=false, $force_print=false){
     sae_set_display_errors(true);
   }else{
     global $conf;
-    if(is_null($fout)) $fout = fopen($conf['tmpdir'],'a');
+    if(is_null($fout)) $fout = fopen($conf['tmpdir'].'/debug.log','a');
     fputs($fout, "$msg\n");
   }
   if(!empty($_GET['_html'])){

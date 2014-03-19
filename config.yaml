@@ -1,0 +1,14 @@
+name: dokuwiki
+version: 2
+handle:
+  - directoryindex: doku.php index.html index.php
+  - hostaccess: if(path ~ "^/(data|conf|bin|inc)/") allow "127.0.0.1"
+  - hostaccess: if(path ~ "^/(install)/") allow "127.0.0.1"
+  - hostaccess: if(path ~ "^/([\.]|README$|VERSION$|COPYING$)") allow "127.0.0.1"
+  - passwdaccess:  if(path ~ "/admin/") passwd "admin:noyesno"
+  - expire: if(path ~ "\.(ico|png|jpg|gif)$") time 604800
+  - rewrite: if(path ~ "^/_media/(.*)") goto "/lib/exe/fetch.php?media=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/_detail/(.*)") goto "/lib/exe/detail.php?media=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/_export/([^/]+)/(.*)") goto "/doku.php?do=export_$1&id=$2&%{QUERY_STRING}"
+  - rewrite: if(!is_file() && path ~ "^/(.*)") goto "/doku.php?id=$1&%{QUERY_STRING}"
+  - rewrite: if(path ~ "^/index.php$") goto "/doku.php"

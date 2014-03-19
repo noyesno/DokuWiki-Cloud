@@ -1,0 +1,27 @@
+~~NOTOC~~
+
+====== DokuWiki ======
+
+[[doku>wiki:dokuwiki|{{https://www.dokuwiki.org/_media/wiki:dokuwiki-128.png }}]] DokuWiki是一个符合标准、简单易用的[[wp>Wiki]]，主要用于创建任何类型的文档。它适用于开发团体、工作小组和小型企业。它有简单而强大的[[doku>syntax|语法]]【[[syntax|中文版语法介绍]]】，确保数据文件在Wiki外仍然可以阅读，并简化了结构化文本的创建。所有数据都保存在纯文本文件中——不需要数据库。
+
+可阅读[[doku>manual|DokuWiki手册]]来了解DokuWiki的强大之处。也可以阅读[[doku>zh:dokuwiki |DokuWiki中文介绍 ]]。
+
+下载DokuWiki请访问：http://www.splitbrain.org/go/dokuwiki
+
+===== DokuWiki for Cloud =====
+
+云计算服务商的出现，使得搭建个人网站或者安装应用更加容易。但对DokuWiki这样基于文本文件的应用程序也提出了移植要求。
+
+目前，[[http://project.noyesno.net/dokuwiki/start|非是非]]已经将DokuWiki移植到了以下云计算平台：
+
+  * [[http://dokuwiki.sinaapp.com/|DokuWiki for Sina App Engine]]
+
+===== DokuWiki for SAE =====
+
+看到本页面表示您已完成了基本的安装设置。欢迎使用**DokuWiki for SAE**。接下来您可以：
+
+  * 登录到 [[http://sae.sina.com.cn/]] 来管理你的应用
+  * [[ /?do=login | 登录]] 您的DokuWiki并开始始用。
+
+
+需要帮助可以访问 [[http://project.noyesno.net/dokuwiki/start]] 或者 [[dokuwiki@noyesno.net|联系我们]]

@@ -786,7 +786,7 @@ class Doku_Renderer_xhtml extends Doku_Renderer {
                             $height=NULL, $cache=NULL, $linking=NULL) {
         global $ID;
         list($src,$hash) = explode('#',$src,2);
-        resolve_mediaid(getNS($ID),$src, $exists);
+        resolve_mediaid(getNS($ID),$src);
 
         $noLink = false;
         $render = ($linking == 'linkonly') ? false : true;
@@ -1181,7 +1181,7 @@ class Doku_Renderer_xhtml extends Doku_Renderer {
         // see internalmedia() and externalmedia()
         list($img['src'],$hash) = explode('#',$img['src'],2);
         if ($img['type'] == 'internalmedia') {
-            resolve_mediaid(getNS($ID),$img['src'],$exists);
+            resolve_mediaid(getNS($ID),$img['src']);
         }
 
         return $this->_media($img['src'],

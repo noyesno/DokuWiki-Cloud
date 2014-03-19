@@ -6,6 +6,12 @@
  */
 
 if(!defined('DOKU_INC')) define('DOKU_INC',dirname(__FILE__).'/');
+
+global $conf; $conf = array();
+include(DOKU_INC.'conf/local.protected.php');
+include(DOKU_INC.'inc/ext/boot.php');
+define('DOKU_LOCAL', $conf['conf'].'/');
+
 if(!defined('DOKU_CONF')) define('DOKU_CONF',DOKU_INC.'conf/');
 if(!defined('DOKU_LOCAL')) define('DOKU_LOCAL',DOKU_INC.'conf/');
 
@@ -32,7 +38,7 @@ require_once(DOKU_INC.'inc/lang/en/lang.php');
 if(isset($_REQUEST['l']) && !is_array($_REQUEST['l'])) {
     $LC = preg_replace('/[^a-z\-]+/','',$_REQUEST['l']);
 }
-if(empty($LC)) $LC = 'en';
+if(empty($LC)) $LC = 'zh';
 if($LC && $LC != 'en' ) {
     require_once(DOKU_INC.'inc/lang/'.$LC.'/lang.php');
 }
@@ -66,15 +72,17 @@ header('Content-Type: text/html; charset=utf-8');
 <head>
     <meta charset="utf-8" />
     <title><?php echo $lang['i_installer']?></title>
+    <link rel="shortcut icon" href="/lib/tpl/dokuwiki/images/favicon.ico" />
     <style type="text/css">
         body { width: 90%; margin: 0 auto; font: 84% Verdana, Helvetica, Arial, sans-serif; }
         img { border: none }
         br.cl { clear:both; }
         code { font-size: 110%; color: #800000; }
-        fieldset { border: none }
+        fieldset { border: none;margin:0.5em 0 0.5em 1em}
         label { display: block; margin-top: 0.5em; }
         select.text, input.text { width: 30em; margin: 0 0.5em; }
         a {text-decoration: none}
+        strong {color:red}
     </style>
     <script type="text/javascript">
         function acltoggle(){
@@ -96,7 +104,7 @@ header('Content-Type: text/html; charset=utf-8');
 </head>
 <body style="">
     <h1 style="float:left">
-        <img src="lib/exe/fetch.php?media=wiki:dokuwiki-128.png&amp;w=64"
+        <img src="lib/tpl/dokuwiki/images/logo.png"
              style="vertical-align: middle;" alt="" />
         <?php echo $lang['i_installer']?>
     </h1>
@@ -135,6 +143,9 @@ header('Content-Type: text/html; charset=utf-8');
                 if(!store_data($_REQUEST['d'])){
                     echo '<p>'.$lang['i_failure'].'</p>';
                     print_errors();
+                }elseif(!init_pages()){
+                    echo '<p>页面复制初始化失败！</p>';
+                    print_errors();
                 }else{
                     echo '<p>'.$lang['i_success'].'</p>';
                 }
@@ -146,9 +157,11 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
 
 
-<div style="clear: both">
+<div style="clear: both;padding-top:1em;text-align:center">
+  <hr/>
   <a href="http://dokuwiki.org/"><img src="lib/tpl/default/images/button-dw.png" alt="driven by DokuWiki" /></a>
   <a href="http://www.php.net"><img src="lib/tpl/default/images/button-php.gif" alt="powered by PHP" /></a>
+  <a href="http://sae.sina.com.cn" target="_blank"><img src="http://static.sae.sina.com.cn/image/poweredby/117X12px.gif" title="Powered by Sina App Engine"></a>
 </div>
 </body>
 </html>
@@ -251,14 +264,14 @@ function print_retry() {
  */
 function check_data(&$d){
     static $form_default = array(
-        'title'     => '',
+        'title'     => 'DokuWiki for SAE',
         'acl'       => '1',
-        'superuser' => '',
-        'fullname'  => '',
-        'email'     => '',
+        'superuser' => 'admin',
+        'fullname'  => 'Admin',
+        'email'     => 'dokuwiki@noyesno.net',
         'password'  => '',
         'confirm'   => '',
-        'policy'    => '0',
+        'policy'    => '1',
         'license'   => 'cc-by-sa'
     );
     global $lang;
@@ -273,7 +286,7 @@ function check_data(&$d){
     }
 
     //autolowercase the username
-    $d['superuser'] = isset($d['superuser']) ? strtolower($d['superuser']) : "";
+    $d['superuser'] = isset($d['superuser']) ? strtolower($d['superuser']) : $form_default['superuser'];
 
     $ok = false;
 
@@ -435,6 +448,10 @@ function check_configs(){
             $ok      = false;
         }
     }
+    if(!$ok){
+      echo '<p><strong>'.$lang['i_modified'].'</strong></p>';
+      if(!empty($_GET['_force'])) $ok = true;
+    }
     return $ok;
 }
 
@@ -448,24 +465,25 @@ function check_permissions(){
     global $error;
     global $lang;
 
-    $dirs = array(
-        'conf'        => DOKU_LOCAL,
-        'data'        => DOKU_INC.'data',
-        'pages'       => DOKU_INC.'data/pages',
-        'attic'       => DOKU_INC.'data/attic',
-        'media'       => DOKU_INC.'data/media',
-        'media_attic' => DOKU_INC.'data/media_attic',
-        'media_meta'  => DOKU_INC.'data/media_meta',
-        'meta'        => DOKU_INC.'data/meta',
-        'cache'       => DOKU_INC.'data/cache',
-        'locks'       => DOKU_INC.'data/locks',
-        'index'       => DOKU_INC.'data/index',
-        'tmp'         => DOKU_INC.'data/tmp'
-    );
+    $paths = array(
+            'conf'      => 'conf',
+            'datadir'   => 'pages',
+            'olddir'    => 'attic',
+            'mediadir'  => 'media',
+            'mediaolddir' => 'media_attic',
+            'metadir'   => 'meta',
+            'mediametadir' => 'media_meta',
+            'cachedir'  => 'cache',
+            'indexdir'  => 'index',
+            'lockdir'   => 'locks',
+            'tmpdir'    => 'tmp');
 
     $ok = true;
-    foreach($dirs as $dir){
-        if(!@file_exists("$dir/.") || !@is_writable($dir)){
+    global $conf;
+    foreach($paths as $c=>$p){
+        $dir = empty($conf[$c])?$conf['savedir'].'/'.$p : $conf[$c];
+        $conf[$c] = $dir;
+        if(!@is_dir($dir) || !@is_writable($dir)){
             $dir     = str_replace($_SERVER['DOCUMENT_ROOT'],'{DOCUMENT_ROOT}', $dir);
             $error[] = sprintf($lang['i_permfail'],$dir);
             $ok      = false;
@@ -491,7 +509,7 @@ function check_functions(){
 
     $funcs = explode(' ','addslashes call_user_func chmod copy fgets '.
                          'file file_exists fseek flush filesize ftell fopen '.
-                         'glob header ignore_user_abort ini_get mail mkdir '.
+                         'glob header ignore_user_abort ini_get mkdir '.             // mail
                          'ob_start opendir parse_ini_file readfile realpath '.
                          'rename rmdir serialize session_start unlink usleep '.
                          'preg_replace file_get_contents htmlspecialchars_decode '.
@@ -556,7 +574,7 @@ function print_errors(){
     if(!empty($error)) {
         echo '<ul>';
         foreach ($error as $err){
-            echo "<li>$err</li>";
+            echo "<li><strong>$err</strong></li>";
         }
         echo '</ul>';
     }
@@ -577,3 +595,9 @@ function remove_magic_quotes(&$array) {
     }
 }
 
+function init_pages(){
+  global $conf;
+  $datadir = $conf['datadir'];
+  rcopy(DOKU_INC.'data/pages', $datadir);
+  return true;
+}

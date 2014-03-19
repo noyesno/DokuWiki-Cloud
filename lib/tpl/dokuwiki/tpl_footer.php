@@ -26,6 +26,7 @@ if (!defined('DOKU_INC')) die();
             src="<?php echo tpl_basedir(); ?>images/button-css.png" width="80" height="15" alt="Valid CSS" /></a>
         <a href="http://dokuwiki.org/" title="Driven by DokuWiki" <?php echo $target?>><img
             src="<?php echo tpl_basedir(); ?>images/button-dw.png" width="80" height="15" alt="Driven by DokuWiki" /></a>
+        <a href="http://sae.sina.com.cn" target="_blank" title="Powered by Sina App Engine (<?php echo round(delta_time(DOKU_START_TIME), 3);?>s)"><img src="http://static.sae.sina.com.cn/image/poweredby/117X12px.gif" alt="Sina App Engine"/></a>
     </div>
 </div></div><!-- /footer -->
 
